@@ -1127,6 +1127,21 @@ async function showDashboard(){
     const approvedCount=allPeriods.filter(p=>p.approved).length;
     const avgPerPeriod=totalPeriods?totalSpent/totalPeriods:0;
 
+    // Collection & Sales totals from periods
+    const totalCollection=allPeriods.reduce((s,p)=>s+(p.footer_col||0),0);
+    const totalSales=allPeriods.reduce((s,p)=>s+(p.footer_sales||0),0);
+
+    // Monthly collection & sales breakdown
+    const monthColMap={}, monthSalesMap={};
+    allPeriods.forEach(p=>{
+      const d=new Date(p.from_date+"T00:00:00");
+      const key=d.getFullYear()+"-"+pad(d.getMonth()+1);
+      monthColMap[key]=(monthColMap[key]||0)+(p.footer_col||0);
+      monthSalesMap[key]=(monthSalesMap[key]||0)+(p.footer_sales||0);
+    });
+    const csMonthKeys=Object.keys({...monthColMap,...monthSalesMap}).sort().slice(-6);
+    const maxCS=Math.max(...csMonthKeys.map(k=>Math.max(monthColMap[k]||0,monthSalesMap[k]||0)),1);
+
     // Monthly breakdown (last 6 months)
     const monthlyMap={};
     periodTotals.forEach(p=>{
@@ -1169,9 +1184,36 @@ async function showDashboard(){
         <div class="stat-box"><span class="stat-val">${totalPeriods}</span><span class="stat-lbl">Periods</span></div>
         <div class="stat-box"><span class="stat-val">${approvedCount}</span><span class="stat-lbl">Approved</span></div>
         <div class="stat-box"><span class="stat-val">₹${(avgPerPeriod).toFixed(0)}</span><span class="stat-lbl">Avg / Period</span></div>
+        <div class="stat-box" style="background:#ecfdf5;border-color:#6ee7b7;"><span class="stat-val" style="color:#047857;">${fmtIndian(totalCollection)}</span><span class="stat-lbl">Total Collection</span></div>
+        <div class="stat-box" style="background:#fffbeb;border-color:#fcd34d;"><span class="stat-val" style="color:#b45309;">${fmtIndian(totalSales)}</span><span class="stat-lbl">Total Sales</span></div>
       </div>
 
       <div class="chart-grid">
+        <!-- Monthly Collection & Sales Bar Chart -->
+        <div class="chart-card">
+          <div class="chart-title">💰 Monthly Collection & Sales (Last 6 Months)</div>
+          <div style="display:flex;gap:12px;margin-bottom:8px;flex-wrap:wrap;">
+            <span style="display:flex;align-items:center;gap:4px;font-size:.7rem;font-weight:600;color:#047857;"><span style="width:10px;height:10px;border-radius:2px;background:#059669;display:inline-block;"></span>Collection</span>
+            <span style="display:flex;align-items:center;gap:4px;font-size:.7rem;font-weight:600;color:#b45309;"><span style="width:10px;height:10px;border-radius:2px;background:#f59e0b;display:inline-block;"></span>Sales</span>
+          </div>
+          <div class="bar-chart-wrap" style="gap:4px;">
+            ${csMonthKeys.length ? csMonthKeys.map(k=>{
+              const c=monthColMap[k]||0, s=monthSalesMap[k]||0;
+              const hc=Math.max(4,Math.round(c/maxCS*100));
+              const hs=Math.max(4,Math.round(s/maxCS*100));
+              const [yr,mo]=k.split('-');
+              return '<div class="bar-col" style="gap:2px;">' +
+                '<div style="font-size:.55rem;color:#047857;font-weight:700;text-align:center;">' + (c>=100000?(c/100000).toFixed(1)+'L':(c/1000).toFixed(0)+'k') + '</div>' +
+                '<div style="display:flex;gap:2px;align-items:flex-end;justify-content:center;">' +
+                  '<div style="width:10px;border-radius:3px 3px 0 0;background:#059669;height:' + hc + 'px;min-height:4px;"></div>' +
+                  '<div style="width:10px;border-radius:3px 3px 0 0;background:#f59e0b;height:' + hs + 'px;min-height:4px;"></div>' +
+                '</div>' +
+                '<div class="bar-label">' + MN[parseInt(mo)-1] + '<br/>' + yr.slice(2) + '</div>' +
+              '</div>';
+            }).join('') : '<div style="color:var(--muted);font-size:.8rem;padding:20px;">No collection/sales data yet</div>'}
+          </div>
+        </div>
+
         <!-- Monthly Bar Chart -->
         <div class="chart-card">
           <div class="chart-title">📈 Monthly Expenses (Last 6 Months)</div>
