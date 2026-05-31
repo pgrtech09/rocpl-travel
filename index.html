@@ -1116,7 +1116,9 @@ function renderTable(ro){
   rows.forEach((r,i)=>{
     const off=r.isSunday||r.isHoliday;
     const cls=r.isSunday?'sunday':(r.isHoliday?'holiday':'working');
-    const da=off?0:DA;
+    // Use custom DA if saved, else auto-fill
+    const defaultDa = off?0:DA;
+    const da = (dt.da!==undefined && dt.da!=='') ? parseFloat(dt.da) : defaultDa;
     const d=r.date,dt=r.data;
     const tr=document.createElement('tr');
     tr.className=cls;tr.id='tr'+i;
@@ -1134,7 +1136,13 @@ function renderTable(ro){
         :ro?`<span style="font-size:.62rem;font-weight:700;color:${r.isHoliday?'#ea580c':'#16a34a'}">${r.isHoliday?'H':'W'}</span>`
            :`<button class="htoggle ${r.isHoliday?'h-off':'h-on'}" onclick="toggleH(${i})">${r.isHoliday?'H':'W'}</button>`
       }</td>`+
-      `<td class="${da>0?'da-y':'da-n'}">${da>0?'₹'+da:'—'}</td>`+
+      `<td style="padding:2px;">
+        <input type="number" id="da${i}" value="${da}" min="0" step="0.01"
+          style="width:100%;border:none;background:transparent;text-align:center;
+          font-family:Rajdhani,sans-serif;font-weight:700;font-size:.85rem;
+          color:${da>0?'#047857':'#94a3b8'};outline:none;padding:3px 2px;"
+          oninput="rows[${i}].data.da=this.value;this.style.color=parseFloat(this.value)>0?'#047857':'#94a3b8';updateRowTotal(${i});triggerAutoSave()"/>
+      </td>`+
       `<td id="op${i}">${i===0
         ?(ro?`<span class="av av-op">${dt.carryOP||'—'}</span>`
             :`<input type="number" value="${xe(dt.carryOP)}" placeholder="Start KM" oninput="rows[0].data.carryOP=this.value;chainMeter(0);triggerAutoSave()"/>`)
@@ -1208,8 +1216,18 @@ function sd(i,k,v){
   triggerAutoSave();
 }
 function rt(i){
-  const off=rows[i].isSunday||rows[i].isHoliday,d=rows[i].data;
-  return (off?0:DA)+n(d.fuel)+n(d.hotel)+n(d.misc)+n(d.toll);
+  const d=rows[i].data;
+  const off=rows[i].isSunday||rows[i].isHoliday;
+  // Use custom DA if set, else default
+  const defaultDa=off?0:DA;
+  const da=(d.da!==undefined&&d.da!=='')?n(d.da):defaultDa;
+  return da+n(d.fuel)+n(d.hotel)+n(d.misc)+n(d.toll);
+}
+
+function updateRowTotal(i){
+  const c=document.getElementById('rt'+i);
+  if(c) c.textContent='₹'+rt(i);
+  recalcAll();
 }
 function n(v){const x=parseFloat(v);return isNaN(x)?0:x;}
 function toggleH(i){
@@ -1222,7 +1240,9 @@ function recalcAll(){
   let tDA=0,tK=0,tQ=0,tF=0,tH=0,tM=0,tT=0,tTot=0,wd=0;
   rows.forEach((r,i)=>{
     const off=r.isSunday||r.isHoliday;if(!off)wd++;
-    tDA+=off?0:DA;tK+=off?0:n(r.data.kms);tQ+=n(r.data.qty);
+    const defaultDa2=off?0:DA;
+    const rowDa=(r.data.da!==undefined&&r.data.da!=='')?n(r.data.da):defaultDa2;
+    tDA+=rowDa; tK+=off?0:n(r.data.kms);tQ+=n(r.data.qty);
     tF+=n(r.data.fuel);tH+=n(r.data.hotel);tM+=n(r.data.misc);
     tT+=n(r.data.toll);tTot+=rt(i);
   });
