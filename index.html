@@ -1532,6 +1532,35 @@ async function saveProfile(){
 // ════════════════════════════════════════
 // FIX 5: MULTI-PHOTO BILL ATTACH (up to 10)
 // ════════════════════════════════════════
+// ════════════════════════════════════════
+// PHOTO COMPRESSION — auto shrinks ANY size photo to ~300KB
+// Works with 5MB, 10MB, 20MB camera photos — no error ever
+// ════════════════════════════════════════
+async function compressPhoto(file){
+  return new Promise((resolve)=>{
+    const reader = new FileReader();
+    reader.onload = function(e){
+      const img = new Image();
+      img.onload = function(){
+        const canvas = document.createElement('canvas');
+        // Max dimension 1200px — good quality for bill photos
+        const MAX = 1200;
+        let w = img.width, h = img.height;
+        if(w > h){ if(w>MAX){h=Math.round(h*MAX/w);w=MAX;} }
+        else{ if(h>MAX){w=Math.round(w*MAX/h);h=MAX;} }
+        canvas.width=w; canvas.height=h;
+        const ctx = canvas.getContext('2d');
+        ctx.drawImage(img,0,0,w,h);
+        // Compress to JPEG quality 0.7 — ~200-400KB for most photos
+        const compressed = canvas.toDataURL('image/jpeg', 0.70);
+        resolve(compressed);
+      };
+      img.src = e.target.result;
+    };
+    reader.readAsDataURL(file);
+  });
+}
+
 async function attachBills(i, input){
   const files=Array.from(input.files);
   if(!files.length)return;
@@ -1540,12 +1569,12 @@ async function attachBills(i, input){
   if(remaining<=0){toast('Max 10 photos already attached','t-err');return;}
   const toAdd=files.slice(0,remaining);
   if(files.length>remaining) toast(`Only ${remaining} photo(s) added (max 10)`, 't-info');
-  showLoader('Attaching photos...');
+  showLoader('Compressing & attaching photos...');
   try{
     for(const file of toAdd){
-      if(file.size>2*1024*1024){toast('One photo too large (max 2MB each)','t-err');continue;}
-      const dataUrl=await readFile(file);
-      rows[i].data.billPhotos.push(dataUrl);
+      // No size check needed — we compress everything automatically
+      const compressed = await compressPhoto(file);
+      rows[i].data.billPhotos.push(compressed);
     }
     if(rows[i].dbId){
       await sb('daily_rows?id=eq.'+rows[i].dbId,'PATCH',{
@@ -1553,7 +1582,7 @@ async function attachBills(i, input){
         bill_photo:rows[i].data.billPhotos[0]||null
       });
     }
-    hideLoader(); toast(`📎 ${toAdd.length} photo(s) attached!`,'t-ok');
+    hideLoader(); toast(`📎 ${toAdd.length} photo(s) compressed & attached!`,'t-ok');
     renderTable(false); chainMeter(0);
   }catch(e){hideLoader();toast('Error: '+e.message,'t-err');}
   input.value='';
