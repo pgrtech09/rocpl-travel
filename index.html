@@ -198,9 +198,45 @@ tfoot td:first-child{text-align:left;padding-left:11px;font-size:.85rem;letter-s
   .banner-left h1{font-size:1rem;}
   .btn{padding:10px 12px;font-size:.82rem;}
 }
+
+/* ── DASHBOARD ── */
+.dash-screen{display:none;position:fixed;inset:0;background:var(--bg);z-index:500;overflow-y:auto;}
+.dash-banner{background:linear-gradient(135deg,#022c22,#064e3b);padding:12px 18px;display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px;position:sticky;top:0;z-index:10;}
+.dash-banner h2{font-family:'Rajdhani',sans-serif;font-size:1.1rem;font-weight:700;color:#fff;letter-spacing:1px;}
+.dash-content{max-width:1200px;margin:0 auto;padding:16px 14px;}
+.stat-row{display:grid;grid-template-columns:repeat(auto-fill,minmax(140px,1fr));gap:10px;margin-bottom:16px;}
+.stat-box{background:var(--card);border-radius:11px;padding:14px;border:1.5px solid var(--border);text-align:center;}
+.stat-val{font-family:'Rajdhani',sans-serif;font-size:1.5rem;font-weight:700;color:#064e3b;display:block;}
+.stat-lbl{font-size:.66rem;font-weight:600;color:var(--muted);text-transform:uppercase;letter-spacing:.8px;margin-top:2px;display:block;}
+.chart-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(300px,1fr));gap:14px;margin-bottom:16px;}
+.chart-card{background:var(--card);border-radius:13px;padding:16px;border:1.5px solid var(--border);box-shadow:0 2px 12px rgba(6,78,59,.08);}
+.chart-title{font-family:'Rajdhani',sans-serif;font-size:.88rem;font-weight:700;color:#047857;text-transform:uppercase;letter-spacing:1px;margin-bottom:12px;}
+.emp-rank-row{display:flex;align-items:center;gap:10px;padding:8px 0;border-bottom:1px solid var(--border);}
+.emp-rank-row:last-child{border-bottom:none;}
+.rank-num{font-family:'Rajdhani',sans-serif;font-size:1rem;font-weight:700;color:#059669;width:24px;flex-shrink:0;}
+.rank-bar-wrap{flex:1;}
+.rank-name{font-size:.75rem;font-weight:600;color:var(--text);margin-bottom:3px;}
+.rank-bar{height:7px;border-radius:99px;background:#d1fae5;overflow:hidden;}
+.rank-fill{height:100%;border-radius:99px;background:linear-gradient(90deg,#047857,#059669);transition:width .6s ease;}
+.rank-amt{font-family:'Rajdhani',sans-serif;font-size:.85rem;font-weight:700;color:#064e3b;white-space:nowrap;}
+.no-data-dash{text-align:center;padding:40px;color:var(--muted);font-size:.9rem;}
+@media(max-width:640px){.chart-grid{grid-template-columns:1fr;}.stat-row{grid-template-columns:repeat(2,1fr);}}
+
 </style>
 </head>
 <body>
+
+
+<!-- ══ DASHBOARD SCREEN ══ -->
+<div class="dash-screen" id="dashScreen">
+  <div class="dash-banner">
+    <h2>📊 Analytics &amp; Dashboard</h2>
+    <button class="btn btn-ghost" onclick="hideDashboard()" ontouchend="event.preventDefault();hideDashboard()">✕ Close</button>
+  </div>
+  <div class="dash-content" id="dashContent">
+    <div class="no-data-dash">⏳ Loading analytics...</div>
+  </div>
+</div>
 
 <!-- ══ LOGIN ══ -->
 <div class="login-screen" id="loginScreen">
@@ -344,6 +380,7 @@ tfoot td:first-child{text-align:left;padding-left:11px;font-size:.85rem;letter-s
       <button id="profileBtn" onclick="openProfile()" style="display:none;background:rgba(255,255,255,.13);border:1px solid rgba(255,255,255,.25);border-radius:8px;padding:5px 12px;color:#fff;cursor:pointer;font-family:Rajdhani,sans-serif;font-size:.82rem;font-weight:600;transition:all .2s;" onmouseover="this.style.background='rgba(255,255,255,.22)'" onmouseout="this.style.background='rgba(255,255,255,.13)'">⚙️ Profile</button>
       <span class="saved-txt" id="savedTxt"></span>
       <button class="btn btn-green" id="btnSave" onclick="saveData()" ontouchend="event.preventDefault();saveData()">💾 Save</button>
+      <button class="btn btn-navy no-print" onclick="showDashboard()" ontouchend="event.preventDefault();showDashboard()">📊 Dashboard</button>
       <button class="btn btn-amber" onclick="window.print()" ontouchend="event.preventDefault();window.print()">🖨️ Print</button>
       <button class="btn btn-ghost" onclick="doLogout()" ontouchend="event.preventDefault();doLogout()">🚪 Logout</button>
     </div>
@@ -771,24 +808,17 @@ function updateBannerProfile(){
 async function empInit(){
   showLoader('Loading your data...');
   try{
-    // Fetch fresh user data from Supabase every time
-    const freshArr=await sb('users?emp_code=eq.'+currentUser.emp_code+'&select=*');
-    if(freshArr&&freshArr.length){
-      currentUser=freshArr[0];
-      saveSession(currentUser);
-    }
-    fillPermDisplay(currentUser);
-    const codeEl=document.getElementById('inp-code');
-    if(codeEl) codeEl.value=currentUser.emp_code;
-    await refreshPeriodDropdown();
+    const freshArr=await sb('users?emp_code=eq.'+CU.emp_code+'&select=*');
+    if(freshArr&&freshArr.length){ CU=freshArr[0]; saveSession(CU); }
+    fillDisp(CU);
+    const ce=document.getElementById('e-code'); if(ce) ce.value=CU.emp_code;
+    await refreshPeriodDrop();
     hideLoader();
   }catch(e){
     hideLoader();
-    // Still show whatever we have
-    fillPermDisplay(currentUser);
-    const codeEl=document.getElementById('inp-code');
-    if(codeEl) codeEl.value=currentUser.emp_code||'';
-    showToast('Error loading: '+e.message,'error');
+    fillDisp(CU);
+    const ce=document.getElementById('e-code'); if(ce) ce.value=CU.emp_code||'';
+    toast('Error: '+e.message,'t-err');
   }
 }
 
