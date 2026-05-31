@@ -499,8 +499,8 @@ tfoot td:first-child{text-align:left;padding-left:11px;font-size:.85rem;letter-s
             <td id="f-misc">₹0.00</td>
             <td id="f-toll">₹0.00</td>
             <td id="f-total">₹0.00</td>
-            <td style="padding:2px;"><input class="ft-inp" type="number" id="f-col" placeholder="0.00" oninput="syncFooter();triggerAutoSave()" onblur="fmtFtInp('f-col')"/></td>
-            <td style="padding:2px;"><input class="ft-inp" type="number" id="f-sales" placeholder="0.00" oninput="syncFooter();triggerAutoSave()" onblur="fmtFtInp('f-sales')"/></td>
+            <td style="padding:2px;"><input class="ft-inp" type="text" id="f-col" placeholder="e.g. 8.12 L" oninput="syncFooter();triggerAutoSave()" onblur="parseLakhInp('f-col')"/></td>
+            <td style="padding:2px;"><input class="ft-inp" type="text" id="f-sales" placeholder="e.g. 8.12 L" oninput="syncFooter();triggerAutoSave()" onblur="parseLakhInp('f-sales')"/></td>
             <td colspan="2">–</td>
           </tr>
         </tfoot>
@@ -623,6 +623,19 @@ function fmt2(v){
 }
 function fmtMoney(v){ return '₹' + fmt2(v); }
 
+// Indian number format with lakhs/crores (e.g. ₹12,34,567.00)
+function fmtIndian(v){
+  const x = parseFloat(v);
+  if(isNaN(x)) return '₹0.00';
+  const [intPart, decPart] = x.toFixed(2).split('.');
+  const lastThree = intPart.slice(-3);
+  const rest = intPart.slice(0, -3);
+  const formatted = rest.length > 0
+    ? rest.replace(/\B(?=(\d{2})+(?!\d))/g, ',') + ',' + lastThree
+    : lastThree;
+  return '₹' + formatted + '.' + decPart;
+}
+
 // Called on blur for money inputs in table rows
 function onMoneyBlur(inp){
   const v = parseFloat(inp.value);
@@ -636,6 +649,40 @@ function fmtFtInp(id){
   if(!el) return;
   const v = parseFloat(el.value);
   if(!isNaN(v)) el.value = v.toFixed(2);
+}
+
+// Lakh input parser: user types "8.12" → stored as 812000, displayed as "8.12 L (₹8,12,000.00)"
+function parseLakhInp(id){
+  const el = document.getElementById(id);
+  if(!el) return;
+  const raw = el.value.trim().replace(/[₹,\s]/g,'').replace(/[Ll]$/,'').trim();
+  const v = parseFloat(raw);
+  if(isNaN(v)||v===0){ el.value=''; el.dataset.rupees='0'; syncFooter(); return; }
+  const rupees = Math.round(v * 100000);
+  el.dataset.rupees = rupees;
+  el.value = v + ' L';
+  syncFooter(); triggerAutoSave();
+}
+
+// Read rupee value from lakh input (uses dataset.rupees if set, else raw parse)
+function getLakhVal(id){
+  const el = document.getElementById(id);
+  if(!el) return 0;
+  if(el.dataset.rupees !== undefined && el.dataset.rupees !== '') return parseFloat(el.dataset.rupees)||0;
+  // fallback: if user typed a plain big number
+  const raw = parseFloat(el.value.replace(/[₹,\sLl]/g,''));
+  return isNaN(raw)?0:raw;
+}
+
+// Load a saved rupee value back into a lakh input
+function setLakhInp(id, rupees){
+  const el = document.getElementById(id);
+  if(!el) return;
+  const v = parseFloat(rupees)||0;
+  if(v===0){ el.value=''; el.dataset.rupees='0'; return; }
+  el.dataset.rupees = v;
+  const lakhs = v / 100000;
+  el.value = (Math.round(lakhs*100)/100) + ' L';
 }
 
 function fmtDedInp(){
@@ -851,8 +898,8 @@ async function onPeriodSelect(pid){
     document.getElementById('toDate').value=p.to_date;
     document.getElementById('jvNo').value=p.jv_no||'';
     document.getElementById('dedInp').value=p.deduction||0;
-    const fc=document.getElementById('f-col'); if(fc) fc.value=p.footer_col||'';
-    const fs=document.getElementById('f-sales'); if(fs) fs.value=p.footer_sales||'';
+    setLakhInp('f-col',p.footer_col);
+    setLakhInp('f-sales',p.footer_sales);
     // load signatures
     if(p.sig_staff!==undefined) {const e=document.getElementById('sig-staff');if(e)e.value=p.sig_staff||'';}
     if(p.sig_staff_date!==undefined){const e=document.getElementById('sig-staff-date');if(e)e.value=p.sig_staff_date||'';}
@@ -901,8 +948,8 @@ async function loadOrCreatePeriod(fromS,toS){
       p=ex[0];
       document.getElementById('jvNo').value=p.jv_no||'';
       document.getElementById('dedInp').value=p.deduction||0;
-      const fc=document.getElementById('f-col');if(fc)fc.value=p.footer_col||'';
-      const fs=document.getElementById('f-sales');if(fs)fs.value=p.footer_sales||'';
+      setLakhInp('f-col',p.footer_col);
+      setLakhInp('f-sales',p.footer_sales);
     } else {
       const prev=new Date(fromS+'T00:00:00'); prev.setDate(prev.getDate()-1);
       const prevPs=await sb('periods?emp_code=eq.'+CU.emp_code+'&to_date=eq.'+fmt(prev)+'&select=last_cl&limit=1');
@@ -1000,8 +1047,8 @@ async function mgrLoadPeriod(){
     document.getElementById('toDate').value=p.to_date;
     document.getElementById('jvNo').value=p.jv_no||'';
     document.getElementById('dedInp').value=p.deduction||0;
-    const fc=document.getElementById('f-col');if(fc)fc.value=p.footer_col||'';
-    const fs=document.getElementById('f-sales');if(fs)fs.value=p.footer_sales||'';
+    setLakhInp('f-col',p.footer_col);
+    setLakhInp('f-sales',p.footer_sales);
     periodId=pid; viewPast=true;
     await loadRows(pid,p.from_date,p.to_date,true);
     syncFooter(); showApprovalBox(p);
@@ -1111,7 +1158,7 @@ async function showDashboard(){
             <div class="rank-name">${code}</div>
             <div class="rank-bar"><div class="rank-fill" style="width:${Math.round(amt/maxEmp*100)}%"></div></div>
           </div>
-          <div class="rank-amt">₹${amt.toFixed(2)}</div>
+          <div class="rank-amt">${fmtIndian(amt)}</div>
         </div>`).join('')}
       </div>`;
     }
@@ -1150,7 +1197,7 @@ async function showDashboard(){
               <div style="width:12px;height:12px;border-radius:3px;background:${col};flex-shrink:0;"></div>
               <div style="flex:1;font-size:.75rem;font-weight:600;color:var(--text);">${lbl}</div>
               <div class="rank-bar" style="flex:2;"><div class="rank-fill" style="width:${pct}%;background:${col};"></div></div>
-              <div style="font-family:Rajdhani,sans-serif;font-size:.82rem;font-weight:700;color:#064e3b;white-space:nowrap;">₹${amt.toFixed(2)} <span style="color:var(--muted);font-size:.68rem;">(${pct}%)</span></div>
+              <div style="font-family:Rajdhani,sans-serif;font-size:.82rem;font-weight:700;color:#064e3b;white-space:nowrap;">${fmtIndian(amt)} <span style="color:var(--muted);font-size:.68rem;">(${pct}%)</span></div>
             </div>`;
           }).join('')}
         </div>
@@ -1164,7 +1211,7 @@ async function showDashboard(){
                 <div class="rank-name">${fmtD(p.from_date)} → ${fmtD(p.to_date)} ${p.approved?'✅':''}</div>
                 <div style="font-size:.67rem;color:var(--muted);">${p.wd} days · ${p.kms} km</div>
               </div>
-              <div class="rank-amt">₹${p.total.toFixed(2)}</div>
+              <div class="rank-amt">${fmtIndian(p.total)}</div>
             </div>`).join('')}
         </div>
 
@@ -1337,9 +1384,9 @@ function recalcAll(){
   syncFooter(); recalcSummary(tTot);
 }
 function syncFooter(){
-  const c=n(document.getElementById('f-col')?.value);
-  const s=n(document.getElementById('f-sales')?.value);
-  st('s-col','₹'+c.toFixed(2)); st('s-sales','₹'+s.toFixed(2));
+  const c=getLakhVal('f-col');
+  const s=getLakhVal('f-sales');
+  st('s-col',fmtIndian(c)); st('s-sales',fmtIndian(s));
 }
 function recalcSummary(claimed){
   if(claimed===undefined){const e=document.getElementById('s-claimed');claimed=parseFloat((e?.textContent||'').replace('₹',''))||0;}
@@ -1367,8 +1414,8 @@ async function saveData(silent=false){
     await sb('periods?id=eq.'+periodId,'PATCH',{
       jv_no:document.getElementById('jvNo').value||null,
       deduction:n(document.getElementById('dedInp').value),
-      footer_col:n(document.getElementById('f-col')?.value),
-      footer_sales:n(document.getElementById('f-sales')?.value),
+      footer_col:getLakhVal('f-col'),
+      footer_sales:getLakhVal('f-sales'),
       last_cl:lastCL,
       saved_at:new Date().toISOString(),
       // FIX 6: save signature fields to period
