@@ -530,28 +530,31 @@ tfoot td:first-child{text-align:left;padding-left:11px;font-size:.85rem;letter-s
         </div>
       </div>
 
-      <!-- FIX 6: Writable signature + date fields -->
-      <div class="sig-grid">
+      <!-- Signature fields -->
+      <div class="sig-grid" id="sigGrid">
         <div class="sig-box">
           <div class="sig-line">
             <input class="sig-input" type="text" id="sig-staff" placeholder="Sign / Name" oninput="triggerAutoSave()"/>
           </div>
           <p>Signature of Staff</p>
           <input class="sig-date-input" type="date" id="sig-staff-date" oninput="triggerAutoSave()"/>
+          <div style="font-size:.6rem;color:#059669;margin-top:3px;" id="sig-staff-hint">✏️ Employee fills this</div>
         </div>
         <div class="sig-box">
           <div class="sig-line">
-            <input class="sig-input" type="text" id="sig-incharge" placeholder="Sign / Name" oninput="triggerAutoSave()"/>
+            <input class="sig-input" type="text" id="sig-incharge" placeholder="—" oninput="triggerAutoSave()"/>
           </div>
           <p>Verification of Incharges</p>
           <input class="sig-date-input" type="date" id="sig-incharge-date" oninput="triggerAutoSave()"/>
+          <div style="font-size:.6rem;color:#b45309;margin-top:3px;" id="sig-incharge-hint">🔒 Manager fills this</div>
         </div>
         <div class="sig-box">
           <div class="sig-line" id="apprSigLine">
-            <input class="sig-input" type="text" id="sig-auth" placeholder="Authorised Signatory" oninput="triggerAutoSave()"/>
+            <input class="sig-input" type="text" id="sig-auth" placeholder="—" oninput="triggerAutoSave()"/>
           </div>
           <p>Authorised Signatory</p>
           <input class="sig-date-input" type="date" id="sig-auth-date" oninput="triggerAutoSave()"/>
+          <div style="font-size:.6rem;color:#7c3aed;margin-top:3px;" id="sig-auth-hint">🔒 Auto-filled on Approval</div>
         </div>
       </div>
     </div>
@@ -797,6 +800,41 @@ function doLogout(){
 }
 
 // ════════════════════════════════════════
+
+// ════════════════════════════════════════
+// SIGNATURE PERMISSIONS
+// ════════════════════════════════════════
+function updateSigPermissions(){
+  const isMgr = CU && CU.role === 'manager';
+  const staffInp  = document.getElementById('sig-staff');
+  const staffDate = document.getElementById('sig-staff-date');
+  const inchInp   = document.getElementById('sig-incharge');
+  const inchDate  = document.getElementById('sig-incharge-date');
+  const authInp   = document.getElementById('sig-auth');
+  const authDate  = document.getElementById('sig-auth-date');
+  const staffHint = document.getElementById('sig-staff-hint');
+  const inchHint  = document.getElementById('sig-incharge-hint');
+  const authHint  = document.getElementById('sig-auth-hint');
+
+  if(isMgr){
+    // Manager: staff readonly, incharge & auth editable (incharge can be filled by manager)
+    [staffInp,staffDate].forEach(e=>{if(e){e.readOnly=true;e.style.background='#f1f5f9';e.style.color='#64748b';}});
+    [inchInp,inchDate].forEach(e=>{if(e){e.readOnly=false;e.style.background='';e.style.color='';}});
+    [authInp,authDate].forEach(e=>{if(e){e.readOnly=true;e.style.background='#f1f5f9';e.style.color='#64748b';}});
+    if(staffHint) staffHint.textContent='🔒 Filled by Employee';
+    if(inchHint)  inchHint.textContent='✏️ Manager fills this';
+    if(authHint)  authHint.textContent='🔒 Auto-filled on Approval';
+  } else {
+    // Employee: staff editable, incharge & auth readonly
+    [staffInp,staffDate].forEach(e=>{if(e){e.readOnly=false;e.style.background='';e.style.color='';}});
+    [inchInp,inchDate].forEach(e=>{if(e){e.readOnly=true;e.style.background='#f1f5f9';e.style.color='#64748b';}});
+    [authInp,authDate].forEach(e=>{if(e){e.readOnly=true;e.style.background='#f1f5f9';e.style.color='#64748b';}});
+    if(staffHint) staffHint.textContent='✏️ Employee fills this';
+    if(inchHint)  inchHint.textContent='🔒 Manager fills this';
+    if(authHint)  authHint.textContent='🔒 Auto-filled on Approval';
+  }
+}
+
 // START APP
 // ════════════════════════════════════════
 async function startApp(){
@@ -811,6 +849,7 @@ async function startApp(){
   document.getElementById('legendDiv').style.display=isMgr?'none':'flex';
   document.getElementById('apprBox').style.display='none';
   document.getElementById('empCard').style.display=isMgr?'none':'';
+  updateSigPermissions();
   try{
     if(isMgr){ await mgrInit(); }
     else { await empInit(); }
@@ -961,6 +1000,13 @@ async function loadOrCreatePeriod(fromS,toS){
       for(let i=0;i<nd;i++){rowsToInsert.push({period_id:p.id,day_index:i,is_holiday:false,carry_op:i===0?carryOP:null});}
       for(let i=0;i<rowsToInsert.length;i+=5){await sb('daily_rows','POST',rowsToInsert.slice(i,i+5));}
     }
+    // Restore editable state for employee
+    const editBtnE=document.getElementById('editPermBtn');
+    if(editBtnE) editBtnE.style.display='';
+    ['fromDate','toDate','jvNo'].forEach(id=>{const e=document.getElementById(id);if(e){e.readOnly=false;e.style.background='';e.style.color='';}});
+    const dedElE=document.getElementById('dedInp');
+    if(dedElE){dedElE.readOnly=false;dedElE.style.background='';dedElE.style.color='';}
+    ['f-col','f-sales'].forEach(id=>{const e=document.getElementById(id);if(e){e.readOnly=false;e.style.background='';e.style.color='';}});
     periodId=p.id; viewPast=false;
     await loadRows(p.id,fromS,toS,false);
     await refreshPeriodDrop();
@@ -1041,6 +1087,14 @@ async function mgrLoadPeriod(){
     const us=await sb('users?emp_code=eq.'+empCode+'&select=*');
     if(us.length){fillDisp(us[0]);}
     document.getElementById('empCard').style.display='';
+    // Manager view — hide Edit button, lock period fields
+    const editBtn=document.getElementById('editPermBtn');
+    if(editBtn) editBtn.style.display='none';
+    document.getElementById('permLockNote').textContent='View only — Employee details';
+    // Make period inputs readonly for manager
+    ['fromDate','toDate','jvNo'].forEach(id=>{const e=document.getElementById(id);if(e){e.readOnly=true;e.style.background='#f1f5f9';e.style.color='#64748b';}});
+    const dedEl=document.getElementById('dedInp');
+    if(dedEl){dedEl.readOnly=true;dedEl.style.background='#f1f5f9';dedEl.style.color='#64748b';}
     const ps=await sb('periods?id=eq.'+pid+'&select=*');
     const p=ps[0];
     document.getElementById('fromDate').value=p.from_date;
@@ -1049,9 +1103,12 @@ async function mgrLoadPeriod(){
     document.getElementById('dedInp').value=p.deduction||0;
     setLakhInp('f-col',p.footer_col);
     setLakhInp('f-sales',p.footer_sales);
+    // Make f-col and f-sales readonly for manager
+    ['f-col','f-sales'].forEach(id=>{const e=document.getElementById(id);if(e){e.readOnly=true;e.style.background='#f1f5f9';e.style.color='#64748b';}});
     periodId=pid; viewPast=true;
     await loadRows(pid,p.from_date,p.to_date,true);
     syncFooter(); showApprovalBox(p);
+    updateSigPermissions();
     document.getElementById('mgrBadge').innerHTML=p.approved?'<span class="badge badge-approved">✅ Approved</span>':'<span class="badge badge-pending">⏳ Pending</span>';
     hideLoader();
   }catch(e){hideLoader();toast('Error: '+e.message,'t-err');}
@@ -1069,7 +1126,7 @@ function showApprovalBox(p){
     if(sd)sd.value=p.approved_at?new Date(p.approved_at).toISOString().slice(0,10):'';
   } else {
     box.className='appr-box pending no-print';
-    box.innerHTML=`<div class="appr-info">⏳ Awaiting Manager Approval<small>Review the sheet below and approve</small></div><button class="btn btn-approve" onclick="approvePeriod('${p.id}')">✅ Approve &amp; Sign</button>`;
+    box.innerHTML=`<div class="appr-info">⏳ Awaiting Manager Approval<small>Review the sheet and fill Incharge signature below, then approve</small></div><button class="btn btn-approve" onclick="approvePeriod('${p.id}')">✅ Approve &amp; Sign</button>`;
   }
 }
 
@@ -1077,7 +1134,18 @@ async function approvePeriod(pid){
   if(!confirm('Approve this expense sheet?\n\nThis will add your signature permanently.'))return;
   showLoader('Approving...');
   try{
-    await sb('periods?id=eq.'+pid,'PATCH',{approved:true,approved_by:CU.name+' ('+CU.emp_code+')',approved_at:new Date().toISOString()});
+    const inchVal=document.getElementById('sig-incharge')?.value||null;
+    const inchDt=document.getElementById('sig-incharge-date')?.value||null;
+    const approvedAt=new Date().toISOString();
+    await sb('periods?id=eq.'+pid,'PATCH',{
+      approved:true,
+      approved_by:CU.name+' ('+CU.emp_code+')',
+      approved_at:approvedAt,
+      sig_incharge:inchVal,
+      sig_incharge_date:inchDt,
+      sig_auth:CU.name+' ('+CU.emp_code+')',
+      sig_auth_date:approvedAt.slice(0,10)
+    });
     hideLoader(); toast('✅ Sheet Approved & Signed!','t-ok');
     await mgrLoadPeriod();
   }catch(e){hideLoader();toast('Error: '+e.message,'t-err');}
