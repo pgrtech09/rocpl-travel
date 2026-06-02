@@ -8,6 +8,10 @@
 <meta name="mobile-web-app-capable" content="yes"/>
 <meta name="apple-mobile-web-app-capable" content="yes"/>
 <meta name="apple-mobile-web-app-title" content="ROCPL Log"/>
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent"/>
+<link rel="apple-touch-icon" href="icon-192.png"/>
+<link rel="icon" type="image/png" href="icon-192.png"/>
+<link rel="manifest" href="manifest.json"/>
 <link href="https://fonts.googleapis.com/css2?family=Rajdhani:wght@400;500;600;700&family=Noto+Sans:wght@300;400;500;600&display=swap" rel="stylesheet"/>
 <style>
 :root{
@@ -1185,8 +1189,10 @@ async function showDashboard(){
         if(!r.is_holiday){da+=rowDA;wd++;}
         fuel+=r.fuel||0;hotel+=r.hotel||0;misc+=r.misc||0;toll+=r.toll||0;kms+=r.kms||0;
       });
-      const total=da+fuel+hotel+misc+toll;
-      return {...p,total,da,fuel,hotel,misc,toll,kms,wd};
+      const gross=da+fuel+hotel+misc+toll;
+      const deduction=p.deduction||0;
+      const total=Math.max(0,gross-deduction);
+      return {...p,total,gross,da,fuel,hotel,misc,toll,kms,wd};
     });
 
     // Overall stats
@@ -1248,10 +1254,10 @@ async function showDashboard(){
 
     dc.innerHTML=`
       <div class="stat-row">
-        <div class="stat-box"><span class="stat-val">₹${(totalSpent/1000).toFixed(1)}k</span><span class="stat-lbl">Total Claimed</span></div>
+        <div class="stat-box"><span class="stat-val">${fmtIndian(totalSpent)}</span><span class="stat-lbl">Net Sanctioned</span></div>
         <div class="stat-box"><span class="stat-val">${totalPeriods}</span><span class="stat-lbl">Periods</span></div>
         <div class="stat-box"><span class="stat-val">${approvedCount}</span><span class="stat-lbl">Approved</span></div>
-        <div class="stat-box"><span class="stat-val">₹${(avgPerPeriod).toFixed(0)}</span><span class="stat-lbl">Avg / Period</span></div>
+        <div class="stat-box"><span class="stat-val">${fmtIndian(avgPerPeriod)}</span><span class="stat-lbl">Avg / Period</span></div>
         <div class="stat-box" style="background:#ecfdf5;border-color:#6ee7b7;"><span class="stat-val" style="color:#047857;">${fmtIndian(totalCollection)}</span><span class="stat-lbl">Total Collection</span></div>
         <div class="stat-box" style="background:#fffbeb;border-color:#fcd34d;"><span class="stat-val" style="color:#b45309;">${fmtIndian(totalSales)}</span><span class="stat-lbl">Total Sales</span></div>
       </div>
