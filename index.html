@@ -1895,5 +1895,14 @@ function toast(msg,cls='t-info'){
   clearTimeout(t._t); t._t=setTimeout(()=>t.classList.remove('show'),3500);
 }
 </script>
+<script>
+if('serviceWorker' in navigator){
+  window.addEventListener('load',()=>{
+    navigator.serviceWorker.register('./sw.js')
+      .then(r=>console.log('SW registered:',r.scope))
+      .catch(e=>console.log('SW error:',e));
+  });
+}
+</script>
 </body>
 </html>
