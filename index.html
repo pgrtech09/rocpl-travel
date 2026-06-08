@@ -408,6 +408,7 @@ tfoot td:first-child{text-align:left;padding-left:11px;font-size:.85rem;letter-s
 
     <div class="view-banner no-print" id="viewBanner" style="display:none;">
       <span id="viewBannerTxt">👁️ Viewing past period</span>
+      <button class="btn btn-green" onclick="savePastPeriod()" style="padding:5px 12px;font-size:.78rem;">💾 Save Changes</button>
       <button class="btn btn-blue" onclick="exitViewMode()" style="padding:5px 12px;font-size:.78rem;">↩️ Back to Current</button>
     </div>
 
@@ -1514,8 +1515,21 @@ function st(id,v){const e=document.getElementById(id);if(e&&e.tagName!=='INPUT')
 // ════════════════════════════════════════
 // SAVE
 // ════════════════════════════════════════
+// Save changes to a past period explicitly
+async function savePastPeriod(){
+  if(!periodId){ toast('No period selected','t-err'); return; }
+  showLoader();
+  try{
+    await saveData(false);
+    toast('✅ Past period saved!','t-ok');
+  } catch(e){
+    toast('Save error: '+e.message,'t-err');
+  }
+  hideLoader();
+}
+
 function triggerAutoSave(){
-  if(viewPast||!periodId||CU?.role==='manager')return;
+  if(!periodId||CU?.role==='manager')return;
   clearTimeout(saveT);
   saveT=setTimeout(()=>saveData(true),1800);
 }
@@ -1523,7 +1537,7 @@ function triggerAutoSave(){
 async function saveData(silent=false){
   if(!periodId){toast('Select a period first','t-err');return;}
   if(CU?.role==='manager'){toast('Managers cannot edit data','t-err');return;}
-  if(viewPast){toast('Viewing past period — changes not saved','t-err');return;}
+  // past periods can now be saved
   if(!silent)showLoader('Saving to cloud...');
   try{
     const lastCL=rows.length?getCL(rows.length-1):null;
