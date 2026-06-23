@@ -1,17 +1,10 @@
 // ROCPL Service Worker — Full PWA Offline Support
-const CACHE_NAME = "rocpl-v1";
+const CACHE_NAME = "rocpl-v2";
 const ASSETS = [
   "./",
   "./index.html",
-  "./app.html",
-  "./dashboard.html",
   "./manifest.json",
-  "./css/style.css",
-  "./js/config.js",
-  "./js/auth.js",
-  "./js/sheet.js",
-  "./js/dashboard.js",
-  "./icons/icon-192.png",
+   "./icons/icon-192.png",
   "./icons/icon-512.png"
 ];
 
